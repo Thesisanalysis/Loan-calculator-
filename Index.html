@@ -503,6 +503,20 @@
         const interestBar = document.getElementById("interestBar");
         const principalLabel = document.getElementById("principalLabel");
         const interestLabel = document.getElementById("interestLabel");
+        
+        // Notification element
+        const body = document.body;
+        const notification = document.createElement('div');
+        notification.classList.add('notification');
+        body.appendChild(notification);
+        
+        function showNotification(message, type) {
+            notification.textContent = message;
+            notification.className = 'notification show ' + type;
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
 
         // Format number with Indian numbering system
         function formatIndianNumber(num) {
@@ -518,15 +532,24 @@
             let result = '';
             const len = positiveNumStr.length;
             
-            for (let i = 0; i < len; i++) {
-                if (i > 0) {
-                    const position = len - i;
-                    if (position === 3 || (position > 3 && (position - 3) % 2 === 0)) {
-                        result += ',';
-                    }
-                }
-                result += positiveNumStr[i];
+            // Format first part (last three digits)
+            let lastThreeDigits = '';
+            if (len > 3) {
+                lastThreeDigits = positiveNumStr.slice(len - 3);
+            } else {
+                return (isNegative ? '-' : '') + positiveNumStr;
             }
+            
+            // Format remaining digits in pairs
+            let remainingDigits = positiveNumStr.slice(0, len - 3);
+            let formattedRemaining = '';
+            while (remainingDigits.length > 0) {
+                let chunk = remainingDigits.slice(remainingDigits.length - 2);
+                formattedRemaining = chunk + (formattedRemaining ? ',' + formattedRemaining : '');
+                remainingDigits = remainingDigits.slice(0, remainingDigits.length - 2);
+            }
+            
+            result = (formattedRemaining ? formattedRemaining + ',' : '') + lastThreeDigits;
             
             return isNegative ? '-' + result : result;
         }
@@ -593,11 +616,71 @@
             payoffTimeEl.textContent = `${loanTermYears} year${loanTermYears > 1 ? 's' : ''}`;
 
             // Calculate percentages for breakdown
-            const principalPercent = Math.round((loanAmount / totalPayment) * 100);
-            const interestPercent = Math.round((totalInterest / totalPayment) * 100);
+            let principalPercent = 0;
+            let interestPercent = 0;
+            if (totalPayment > 0) {
+                principalPercent = Math.round((loanAmount / totalPayment) * 100);
+                interestPercent = Math.round((totalInterest / totalPayment) * 100);
+            }
+            
+            // Adjust percentages to ensure they sum to 100%
+            if (principalPercent + interestPercent !== 100) {
+                const difference = 100 - (principalPercent + interestPercent);
+                if (difference !== 0) {
+                    // Add the difference to the larger percentage to make it sum to 100
+                    if (principalPercent > interestPercent) {
+                        principalPercent += difference;
+                    } else {
+                        interestPercent += difference;
+                    }
+                }
+            }
 
             // Update chart bars
             principalBar.style.width = `${principalPercent}%`;
             interestBar.style.width = `${interestPercent}%`;
             principalLabel.textContent = `Principal: ${principalPercent}%`;
-            interestLabel.textContent = `Inte
+            interestLabel.textContent = `Interest: ${interestPercent}%`;
+            
+            resultContainer.classList.add("visible");
+        }
+        
+        // Reset function
+        function resetCalculator() {
+            // Reset input values to defaults
+            loanAmountInput.value = "1000000";
+            interestRateInput.value = "8.5";
+            loanTermInput.value = "15";
+            
+            // Sync sliders
+            syncSlider(loanAmountInput, loanAmountSlider);
+            syncSlider(interestRateInput, interestRateSlider);
+            syncSlider(loanTermInput, loanTermSlider);
+            
+            // Reset results display
+            monthlyPaymentEl.textContent = `₹0`;
+            totalPaymentEl.textContent = `₹0`;
+            totalInterestEl.textContent = `₹0`;
+            payoffTimeEl.textContent = `0 years`;
+            
+            // Reset chart bars
+            principalBar.style.width = `0%`;
+            interestBar.style.width = `0%`;
+            principalLabel.textContent = `Principal: 0%`;
+            interestLabel.textContent = `Interest: 0%`;
+            
+            resultContainer.classList.remove("visible");
+            showNotification("Calculator has been reset.", "success");
+        }
+
+        // Event listeners for buttons
+        calculateBtn.addEventListener('click', calculateLoan);
+        resetBtn.addEventListener('click', resetCalculator);
+        
+        // Initial calculation on load
+        document.addEventListener('DOMContentLoaded', () => {
+            calculateLoan();
+        });
+    </script>
+</body>
+</html>
